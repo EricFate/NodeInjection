@@ -1,12 +1,12 @@
-Node injection attack on GCN
+Node injection attack on GCN for kdd cup 2020
 ====
 
 
 
 ## Requirements
 
-  * PyTorch 1.0+
-  * Python 3.6
+  * PyTorch 1.4.0+
+  * Python 3.6+
 
 ## Usage
 
