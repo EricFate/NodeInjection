@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
 import torch
+from torch_geometric.data import Data
 import os.path as osp
 
 
@@ -55,6 +56,13 @@ def convert_to_coo(adj):
     edge_weight = np.ones_like(coo_adj.data)
     edge_index = np.stack([coo_adj.row, coo_adj.col])
     return edge_index, edge_weight
+
+
+def get_data():
+    adj, features, labels, idx_train, idx_val, idx_test = load_data()
+    edge_index, edge_weight = convert_to_coo(adj)
+    data = Data(x=(torch.from_numpy(features)).float().cuda(), edge_index=(torch.from_numpy(edge_index)).long().cuda())
+    return data, labels, idx_train, idx_val, idx_test
 
 
 # def load_data(path="./data/cora/", dataset="cora"):
