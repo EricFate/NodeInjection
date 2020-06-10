@@ -6,12 +6,15 @@ import argparse
 import numpy as np
 
 import torch
+
 import torch.nn.functional as F
+
 import torch.optim as optim
 
-from pygcn.utils import load_data, accuracy, convert_to_coo, get_data
-from pygcn.models import SGCNModel, SGCNet
+from pygcn.utils import load_data, accuracy, convert_to_coo, get_data, Dataset
+from pygcn.models import SGCNModel, SGCNet, GraphSAGE, GraphCN
 from pygcn.trainer import GcnTrainer
+from torch_geometric.data import ClusterData, ClusterLoader, NeighborSampler
 import os
 
 # Training settings
@@ -20,11 +23,11 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='Disables CUDA training.')
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
-parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--gpu', type=str, default='1', help='gpu number.')
+parser.add_argument('--seed', type=int, default=48, help='Random seed.')
+parser.add_argument('--gpu', type=str, default='0,1', help='gpu number.')
 parser.add_argument('--epochs', type=int, default=500,
                     help='Number of epochs to train.')
-parser.add_argument('--lr', type=float, default=0.01,
+parser.add_argument('--lr', type=float, default=0.005,
                     help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=1e-4,
                     help='Weight decay (L2 loss on parameters).')
@@ -143,6 +146,7 @@ def train_gcn(model, data, labels, idx_train, idx_val):
           'time: {:.4f}s'.format(time.time() - t))
 
 
+
 if __name__ == '__main__':
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -152,18 +156,37 @@ if __name__ == '__main__':
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-    data, labels, idx_train, idx_val, idx_test = get_data()
-    model = SGCNet(input_size=100, hidden_size=128)
+    data = get_data()
+    # model = GraphCN()
+    model = GraphSAGE()
+    model.cuda()
     optimizer = optim.Adam(model.parameters(),
                            lr=args.lr, weight_decay=args.weight_decay)
-    if args.cuda:
-        model.cuda()
-        labels = torch.from_numpy(labels).cuda().long()
-
-        idx_train = idx_train.cuda()
-        idx_val = idx_val.cuda()
-        idx_test = idx_test.cuda()
 
     trainer = GcnTrainer(model, optimizer)
-    trainer.train(data, labels, idx_train, idx_val, 20)
-    trainer.test(data, labels, idx_test)
+    trainer.train(data, 2000)
+    trainer.test(data)
+
+# if __name__ == '__main__':
+#     args = parser.parse_args()
+#     args.cuda = not args.no_cuda and torch.cuda.is_available()
+#     args.device = device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     np.random.seed(args.seed)
+#     torch.manual_seed(args.seed)
+#     if args.cuda:
+#         torch.cuda.manual_seed(args.seed)
+#         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+#     data = get_data()
+#     model = GraphSAGE()
+#     model.cuda()
+#     optimizer = optim.Adam(model.parameters(),
+#                            lr=args.lr, weight_decay=args.weight_decay)
+#
+#     use_batch = False
+#     if use_batch:
+#         cluster_data = ClusterData(data, num_parts=1000, recursive=False)
+#         trian_loader = ClusterLoader(cluster_data, batch_size=10, shuffle=True, num_workers=0)
+#         subgraph_loader = NeighborSampler(data.edge_index, sizes=[-1], batch_size=1024, shuffle=False)
+#     trainer = GcnTrainer(model, optimizer)
+#     trainer.train(dataset, 4000)
+#     trainer.test(dataset)

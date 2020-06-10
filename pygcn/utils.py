@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data, InMemoryDataset
 import os.path as osp
 
 
@@ -58,11 +58,32 @@ def convert_to_coo(adj):
     return edge_index, edge_weight
 
 
-def get_data():
+def get_data(cuda=True):
     adj, features, labels, idx_train, idx_val, idx_test = load_data()
     edge_index, edge_weight = convert_to_coo(adj)
-    data = Data(x=(torch.from_numpy(features)).float().cuda(), edge_index=(torch.from_numpy(edge_index)).long().cuda())
-    return data, labels, idx_train, idx_val, idx_test
+    data = Data(x=(torch.from_numpy(features)).float(), edge_index=(torch.from_numpy(edge_index)).long(),
+                y=(torch.from_numpy(labels)).long().cuda())
+    data.train_mask = idx_train
+    data.val_mask = idx_val
+    data.test_mask = idx_test
+    if cuda:
+        data.x = data.x.cuda()
+        data.edge_index = data.edge_index.cuda()
+        data.y = data.y.cuda()
+        data.train_mask = data.train_mask.cuda()
+        data.val_mask = data.val_mask.cuda()
+        data.test_mask = data.test_mask.cuda()
+    return data
+
+
+class Dataset(InMemoryDataset):
+    def __init__(self, transform=None, pre_transform=None):
+        super(Dataset, self).__init__(root=None, transform=transform, pre_transform=pre_transform)
+        data, idx_train, idx_val, idx_test = get_data()
+        self.data, self.slices = self.collate([data])
+        self.train_mask = idx_train.cuda()
+        self.val_mask = idx_val.cuda()
+        self.test_mask = idx_test.cuda()
 
 
 # def load_data(path="./data/cora/", dataset="cora"):
