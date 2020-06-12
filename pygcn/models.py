@@ -1,7 +1,25 @@
+from typing import Any
+
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.modules.module import T_co
+import torch as t
+import torch.sparse as sp
+
 from pygcn.layers import GraphConvolution
 from torch_geometric.nn import SGConv
+
+
+class AdjMlp(nn.Module):
+
+    def __init__(self, in_features, out_features) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(t.FloatTensor(in_features, out_features))
+
+    def forward(self, adj, size):
+        val = t.ones(size)
+        x = sp.FloatTensor(adj, val, size=(size, size))
+        x = sp.mm(x, self.weight)
 
 
 class GCN(nn.Module):
@@ -40,12 +58,18 @@ class SGCNModel(nn.Module):
 
         self.output_layer = nn.Linear(hidden_size, class_num)
 
-    def forward(self, x, edge_index, edge_weight=None):
+    def forward(self, x, edge_index, edge_weight=None, feature=False):
         for proj in self.pre_proj_layers:
             x = proj(x)
         # x1 = x
-        # x = F.relu(self.conv(x, edge_index, edge_weight)) + x1
+        c = self.conv(x, edge_index, edge_weight)
+        x = F.relu(c)
+        c = self.conv(x, edge_index, edge_weight)
+        x = F.relu(c)
+        # + x1
         for proj in self.after_proj_layers:
             x = proj(x)
+        if feature:
+            return x
         x = self.output_layer(x)
         return x
