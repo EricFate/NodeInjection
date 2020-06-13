@@ -25,7 +25,7 @@ def load_data(path="/home/amax/data/kdd_cup/", dataset="kddcup"):
     with open(path + 'experimental_train.pkl', 'rb') as f:
         labels = pk.load(f)
 
-    features = normalize(features, False)
+    # features = normalize(features, False)
     # adj = normalize(adj + sp.eye(adj.shape[0]))
     #
     total = labels.shape[0]
@@ -43,9 +43,9 @@ def load_data(path="/home/amax/data/kdd_cup/", dataset="kddcup"):
     # labels = torch.LongTensor(labels)
     # adj = sparse_mx_to_torch_sparse_tensor(adj)
     #
-    idx_train = torch.LongTensor(idx_train)
-    idx_val = torch.LongTensor(idx_val)
-    idx_test = torch.LongTensor(idx_test)
+    # idx_train = torch.LongTensor(idx_train)
+    # idx_val = torch.LongTensor(idx_val)
+    # idx_test = torch.LongTensor(idx_test)
 
     return adj, features, labels, idx_train, idx_val, idx_test
 
@@ -102,6 +102,7 @@ def normalize(mx, symmetric=True):
     """Row-normalize sparse matrix"""
     rowsum = np.array(mx.sum(1))
     if symmetric:
+        rowsum += 1
         r_inv = np.power(rowsum, -0.5).flatten()
         r_inv[np.isinf(r_inv)] = 0.
         r_mat_inv = sp.diags(r_inv)
@@ -119,6 +120,13 @@ def accuracy(output, labels):
     correct = preds.eq(labels).double()
     correct = correct.sum()
     return correct / len(labels)
+
+
+def count_acc(logits, label):
+    pred = torch.argmax(logits, dim=1)
+    # if torch.cuda.is_available():
+    return (pred == label).float() \
+        .mean().item()
 
 
 def sparse_mx_to_torch_sparse_tensor(sparse_mx):

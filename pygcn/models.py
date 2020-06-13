@@ -2,12 +2,35 @@ from typing import Any
 
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.modules.module import T_co
 import torch as t
 import torch.sparse as sp
 
 from pygcn.layers import GraphConvolution
 from torch_geometric.nn import SGConv
+from torch.nn.parameter import Parameter
+import math
+
+
+class LinearSurrogate(nn.Module):
+
+    def __init__(self, in_features, out_features):
+        super().__init__()
+        self.weight = Parameter(t.FloatTensor(in_features, out_features))
+        self.reset_parameters()
+
+    def forward(self, x, adj):
+        support = t.mm(x, self.weight)
+        output = t.spmm(adj, support)
+        z = t.spmm(adj, output)
+        return z
+
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.weight.size(1))
+        self.weight.data.uniform_(-stdv, stdv)
+
+    @property
+    def W(self):
+        return self.weight
 
 
 class AdjMlp(nn.Module):
