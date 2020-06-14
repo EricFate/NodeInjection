@@ -67,7 +67,6 @@ class GradAttack:
                 e_w = t.cat([edge_weight, adv_weight, adv_weight], dim=0)
                 logits = self.real_model(f, e_i, e_w)
                 train_logits = logits[train_idx]
-                adv_acc = count_acc(train_logits, train_labels)
                 l_val = train_logits.gather(1, train_labels.view(-1, 1)).clone()
                 c_val, c_new = t.max(train_logits - 1e6 * train_labels_onehot, dim=1)
                 dif = c_val - l_val.squeeze()
@@ -186,7 +185,7 @@ class GradAttack:
         features = adv_features.data.numpy()
         total = X.shape[0] + self.args.num_adv
         adj = coo_matrix((data, (rows, cols)), shape=(total, total))
-        adj = adj.tocsr()[init_edges:, :]
+        adj = adj.tocsr()[X.shape[0]:, :]
         np.save('result/features.npy', features)
         with open('result/adj.pkl', 'wb') as f:
             pk.dump(adj, f)
