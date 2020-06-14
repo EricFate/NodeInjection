@@ -12,6 +12,7 @@ import torch.optim as optim
 from pygcn.utils import load_data, accuracy, convert_to_coo, normalize
 from pygcn.models import SGCNModel
 import os
+from scipy.sparse.csgraph import connected_components
 
 # Training settings
 parser = argparse.ArgumentParser()
@@ -20,7 +21,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--gpu', type=str, default='1', help='gpu number.')
+parser.add_argument('--gpu', type=str, default='0,1', help='gpu number.')
 parser.add_argument('--epochs', type=int, default=1000,
                     help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.02,
@@ -77,14 +78,14 @@ if __name__ == '__main__':
         torch.cuda.manual_seed(args.seed)
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
         print('using gpu %s ' % args.gpu)
-    args.device = device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
     # Load data
     adj, features, labels, idx_train, idx_val, idx_test = load_data()
-    features = np.concatenate([features, np.zeros((500,100))], axis=0)
-
+    # features = np.concatenate([features, np.zeros((500,100))], axis=0)
+    cp = connected_components(adj)
     # Model and optimizer
     model = SGCNModel(K=2, input_size=100,
                       hidden_size=64, class_num=18, pre_proj_num=2, after_proj_num=2)
@@ -97,15 +98,16 @@ if __name__ == '__main__':
     )
 
     edge_index, edge_weight = convert_to_coo(adj)
+    device = torch.device('cuda:1')
     if args.cuda:
         model.cuda()
-        features = torch.from_numpy(features).cuda().float()
-        edge_index = torch.from_numpy(edge_index).cuda().long()
-        edge_weight = torch.from_numpy(edge_weight).cuda().float()
-        labels = torch.from_numpy(labels).cuda().long()
-        idx_train = idx_train.cuda()
-        idx_val = idx_val.cuda()
-        idx_test = idx_test.cuda()
+        features = torch.from_numpy(features).cuda(device).float()
+        edge_index = torch.from_numpy(edge_index).cuda(device).long()
+        edge_weight = torch.from_numpy(edge_weight).cuda(device).float()
+        labels = torch.from_numpy(labels).cuda(device).long()
+        # idx_train = idx_train.cuda()
+        # idx_val = idx_val.cuda()
+        # idx_test = idx_test.cuda()
 
     # Train model
     t_total = time.time()
