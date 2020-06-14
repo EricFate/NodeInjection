@@ -24,10 +24,10 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=48, help='Random seed.')
-parser.add_argument('--gpu', type=str, default='0,1', help='gpu number.')
+parser.add_argument('--gpu', type=str, default='1', help='gpu number.')
 parser.add_argument('--epochs', type=int, default=500,
                     help='Number of epochs to train.')
-parser.add_argument('--lr', type=float, default=0.005,
+parser.add_argument('--lr', type=float, default=0.001,
                     help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=1e-4,
                     help='Weight decay (L2 loss on parameters).')
@@ -81,7 +81,7 @@ def main():
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
-        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     # Load data
     adj, features, labels, idx_train, idx_val, idx_test = load_data()
@@ -146,7 +146,6 @@ def train_gcn(model, data, labels, idx_train, idx_val):
           'time: {:.4f}s'.format(time.time() - t))
 
 
-
 if __name__ == '__main__':
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -155,13 +154,13 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
-        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     data = get_data()
     # model = GraphCN()
     model = GraphSAGE()
     model.cuda()
-    optimizer = optim.Adam(model.parameters(),
-                           lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     trainer = GcnTrainer(model, optimizer)
     trainer.train(data, 2000)

@@ -111,12 +111,12 @@ class GraphCN(nn.Module):
         super(GraphCN, self).__init__()
         self.layers = nn.ModuleList()
         n_layers = 3
-        in_channels = 128
+        in_channels = 100
         hidden_channels = 64
         class_num = 18
         bias = True
-        self.embedding = nn.Sequential(nn.Linear(100, in_channels),
-                                       nn.ReLU(), )
+        # self.embedding = nn.Sequential(nn.Linear(100, in_channels),
+        #                                nn.ReLU(), )
 
         self.layers.append(
             GCNConv(in_channels, hidden_channels, normalize=True, bias=bias))
@@ -129,7 +129,6 @@ class GraphCN(nn.Module):
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index
-        x = self.embedding(x)
         for layer in self.layers:
             x = layer(x, edge_index)
             x = F.relu(x)
@@ -142,21 +141,27 @@ class GraphSAGE(nn.Module):
     def __init__(self):
         super(GraphSAGE, self).__init__()
         self.layers = nn.ModuleList()
-        n_layers = 3
+        n_layers = 4
         in_channels = 128
-        hidden_channels = 64
+        hidden_channels = 80
+        out_channels = 80
         class_num = 18
         bias = True
+        normalize = True
+
         self.embedding = nn.Sequential(nn.Linear(100, in_channels),
                                        nn.ReLU(), )
 
         self.layers.append(
-            SAGEConv(in_channels, hidden_channels, normalize=True, bias=bias))
+            SAGEConv(in_channels, hidden_channels, normalize=normalize, bias=bias))
         # hidden layers
         for i in range(n_layers - 1):
-            self.layers.append(SAGEConv(hidden_channels, hidden_channels, normalize=True, bias=bias))
+            if i != n_layers - 2:
+                self.layers.append(SAGEConv(hidden_channels, hidden_channels, normalize=normalize, bias=bias))
+            else:
+                self.layers.append(SAGEConv(hidden_channels, out_channels, normalize=normalize, bias=bias))
         # output layer
-        self.out_layer = SAGEConv(hidden_channels, class_num, normalize=True, bias=bias)
+        self.out_layer = SAGEConv(out_channels, class_num, normalize=normalize, bias=bias)
         # activation None
 
     def forward(self, data):
@@ -165,7 +170,7 @@ class GraphSAGE(nn.Module):
         for layer in self.layers:
             x = layer(x, edge_index)
             x = F.relu(x)
-            x = F.dropout(x, p=0.25, training=self.training)
+            x = F.dropout(x, p=0.20, training=self.training)
         x = self.out_layer(x, edge_index)
         return x
 
@@ -178,16 +183,17 @@ class GraphCluster(nn.Module):
         hidden_channels = 64
         class_num = 18
         bias = True
+        normalize = False
         # self.embedding = nn.Sequential(nn.Linear(100, in_channels),
         #                                nn.ReLU(), )
 
         self.layers.append(
-            SAGEConv(in_channels, hidden_channels, normalize=True, bias=bias))
+            SAGEConv(in_channels, hidden_channels, normalize=normalize, bias=bias))
         # hidden layers
         for i in range(n_layers - 1):
-            self.layers.append(SAGEConv(hidden_channels, hidden_channels, normalize=True, bias=bias))
+            self.layers.append(SAGEConv(hidden_channels, hidden_channels, normalize=normalize, bias=bias))
         # output layer
-        self.out_layer = SAGEConv(hidden_channels, class_num, normalize=True, bias=bias)
+        self.out_layer = SAGEConv(hidden_channels, class_num, normalize=normalize, bias=bias)
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index

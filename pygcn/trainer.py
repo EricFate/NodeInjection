@@ -7,6 +7,7 @@ from pygcn.utils import accuracy
 from torch_geometric.data import DataLoader
 
 
+
 class GcnTrainer:
     def __init__(self, model, optimizer):
         self.model = model
@@ -39,7 +40,7 @@ class GcnTrainer:
 
     def train_cluster(self, cluster_data, epoch_num):
         loader = DataLoader(cluster_data, shuffle=True, batch_size=1)
-        my_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=self.optimizer, gamma=0.99)
+        my_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=self.optimizer, gamma=0.9)
 
         for epoch in range(epoch_num):
             t = time.time()
@@ -72,4 +73,4 @@ class GcnTrainer:
         print("Test set results:",
               "loss= {:.4f}".format(loss_test.item()),
               "accuracy= {:.4f}".format(acc_test.item()))
-        torch.save(self.model, "./SAGE:{}.pkl".format(acc_test))
+        torch.save(self.model, "./SAGE_nonorm:{}.pkl".format(acc_test))

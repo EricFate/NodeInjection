@@ -26,7 +26,7 @@ def load_data(path="/home/amax/data/kdd_cup/", dataset="kddcup"):
     with open(path + 'experimental_train.pkl', 'rb') as f:
         labels = pk.load(f)
 
-    features = normalize(features, False)
+    # features = normalize(features, False)
     # adj = normalize(adj + sp.eye(adj.shape[0]))
     #
     total = labels.shape[0]
@@ -58,14 +58,60 @@ def convert_to_coo(adj):
     return edge_index, edge_weight
 
 
-def get_data(cuda=True):
+def normalization(data):
+    _range = np.max(data) - np.min(data)
+    return (data - np.min(data)) / _range * 100
+
+
+def normalization_neg(data):
+    _range = np.max(data) - np.min(data)
+    return ((data - np.min(data)) / _range * 100) - 50
+
+
+def standardization(data):
+    mu = np.mean(data, axis=0)
+    sigma = np.std(data, axis=0)
+    return (data - mu) / sigma
+
+
+def get_data(cuda=True, use_adj=False, adv=False):
     adj, features, labels, idx_train, idx_val, idx_test = load_data()
+    data_len = len(labels)
+    # features = normalization_neg(features)
     edge_index, edge_weight = convert_to_coo(adj)
-    data = Data(x=(torch.from_numpy(features)).float(), edge_index=(torch.from_numpy(edge_index)).long(),
-                y=(torch.from_numpy(labels)).long().cuda())
+
+    # features_min = np.min(features, axis=0)
+    # features_max = np.min(features, axis=0)
+    # print(features_min)
+    # print(features_max)
+    # print(np.mean(features, axis=0))
+    # print(np.var(features,axis=0))
+    if use_adj:
+        data = Data(x=(torch.from_numpy(features)).float(), edge_index=(torch.from_numpy(adj.toarray())).long(),
+                    y=(torch.from_numpy(labels)).long())
+    else:
+        data = Data(x=(torch.from_numpy(features)).float(), edge_index=(torch.from_numpy(edge_index)).long(),
+                    y=(torch.from_numpy(labels)).long())
     data.train_mask = idx_train
     data.val_mask = idx_val
     data.test_mask = idx_test
+    # if adv:
+    #     adv_feature = torch.rand((500, 100)) * 100 - 50
+    #     data.x = torch.cat((data.x, adv_feature), dim=0)
+    #     # adv_adj_1 = torch.zeros((500, adj.size()[0])).long()
+    #     # adv_adj_2 = torch.zeros((500 + adj.size()[0], 500)).long()
+    #     # data.edge_index = torch.cat((data.edge_index, adv_adj_1), dim=0)
+    #     # data.edge_index = torch.cat((data.edge_index, adv_adj_2), dim=1)
+    #     for i in range(500):
+    #         adv_feature = torch.rand((500, 100)) * 100 - 50
+    #         data.x = torch.cat((data.x, adv_feature), dim=0)
+    #         edge_1 = (torch.ones(1, 100) * (data_len + i)).long()
+    #         edge_2 = (torch.rand(1, 100) * data_len).long()
+    #         edges = torch.cat((edge_1, edge_2), dim=0)
+    #         data.edge_index = torch.cat((data.edge_index, edges), dim=1)
+    #     data.y = torch.cat((data.y, torch.zeros(500).long()))
+    #     data.adv_mask = (torch.LongTensor(np.arange(data_len, 500))).cuda()
+
     if cuda:
         data.x = data.x.cuda()
         data.edge_index = data.edge_index.cuda()
