@@ -7,6 +7,7 @@ import numpy as np
 import pickle as pk
 from torch.nn import functional as F
 from tqdm import tqdm
+import os
 
 
 class GradAttack:
@@ -15,18 +16,23 @@ class GradAttack:
         self.args = args
         self.real_model = real_model
         self.normalize = args.normalize
+        self.dirname = 'norm_{}_targ_{}'.format(self.normalize, self.args.targeted)
+        path = os.path.join('result', self.dirname)
+        if not os.path.exists(path):
+            os.mkdir(path)
 
-    def attack(self, X, edge_index, edge_weight, labels, train_idx):
-        # self.eval_real(X, edge_index, edge_weight, labels, train_idx)
+    def attack(self, X, edge_index, edge_weight, labels, attack_idx):
+        # self.eval_real(X, edge_index, edge_weight, labels, attack_idx)
         # edge_index, edge_weight = convert_to_coo(A)
         adv_per_iter = 50
         print('grad attack with {} per iter and use normalize {}'.format(adv_per_iter, self.normalize))
         num_iter = self.args.num_adv // adv_per_iter
-        train_labels = labels[train_idx]
-        train_labels_onehot = t.zeros((len(train_labels), 18)) \
+        attack_labels = labels
+        attack_labels_onehot = t.zeros((len(attack_labels), 18)) \
             .to(self.args.device) \
-            .scatter_(1, train_labels.view(-1, 1), 1)
-        init_edges = len(edge_weight)
+            .scatter_(1, attack_labels.view(-1, 1), 1)
+        targeted = t.randint_like(labels, high=17).to(self.args.device)
+        targeted[targeted >= labels] += 1
         for it in range(num_iter):
             print('iteration {}: adding {} new node'.format(it, adv_per_iter))
             cum_adv = (it + 1) * adv_per_iter
@@ -57,7 +63,7 @@ class GradAttack:
             # features = t.autograd.Variable(t.cat([self.features, adv_feat], dim=0)).to(self.args.device1).requires_grad_(
             #     True)
             # features = normalize(features)
-            for ep in range(5):
+            for ep in range(3):
                 print('start adv train on edge %d' % ep)
                 if self.normalize:
                     norm_feature = 3 * F.normalize(adv_features, p=float('inf'), dim=0)
@@ -66,11 +72,14 @@ class GradAttack:
                     f = t.cat([X, adv_features], dim=0)
                 e_w = t.cat([edge_weight, adv_weight, adv_weight], dim=0)
                 logits = self.real_model(f, e_i, e_w)
-                train_logits = logits[train_idx]
-                l_val = train_logits.gather(1, train_labels.view(-1, 1)).clone()
-                c_val, c_new = t.max(train_logits - 1e6 * train_labels_onehot, dim=1)
-                dif = c_val - l_val.squeeze()
-                # loss = - F.cross_entropy(train_logits, train_labels)
+                train_logits = logits[attack_idx]
+                l_val = train_logits.gather(1, attack_labels.view(-1, 1)).squeeze()
+                if self.args.targeted:
+                    c_val = train_logits.gather(1, targeted.view(-1, 1)).squeeze()
+                else:
+                    c_val, c_new = t.max(train_logits - 1e6 * attack_labels_onehot, dim=1)
+                dif = c_val - l_val
+                # loss = - F.cross_entropy(train_logits, attack_labels)
                 loss = t.sum(dif)
                 opt.zero_grad()
                 # t.cuda.empty_cache()
@@ -135,8 +144,9 @@ class GradAttack:
                 tmp_edge_weight = t.cat([edge_weight, t.ones(2 * non_zeros)], dim=0).to(self.args.device1)
                 self.real_model = self.real_model.to(self.args.device1)
                 adv_features = adv_features.to(self.args.device1).requires_grad_(True)
-                train_labels_gpu = train_labels.to(self.args.device1)
-                train_labels_onehot_gpu = train_labels_onehot.to(self.args.device1)
+                train_labels_gpu = attack_labels.to(self.args.device1)
+                train_labels_onehot_gpu = attack_labels_onehot.to(self.args.device1)
+                targeted_gpu = targeted.to(self.args.device1)
                 X_gpu = X.to(self.args.device1)
                 opt = optim.Adam((adv_features,), lr=0.01)
                 print('start adv train on feature %d' % ep)
@@ -148,12 +158,15 @@ class GradAttack:
                         f = t.cat([X_gpu, adv_features], dim=0)
                     # e_w = t.cat([edge_weight, adv_weight, adv_weight], dim=0)
                     logits = self.real_model(f, tmp_edge_index, tmp_edge_weight)
-                    train_logits = logits[train_idx]
+                    train_logits = logits[attack_idx]
                     adv_acc = count_acc(train_logits, train_labels_gpu)
-                    l_val = train_logits.gather(1, train_labels_gpu.view(-1, 1)).clone()
-                    c_val, c_new = t.max(train_logits - 1e6 * train_labels_onehot_gpu, dim=1)
-                    dif = l_val.squeeze() - c_val
-                    # loss = - F.cross_entropy(train_logits, train_labels)
+                    l_val = train_logits.gather(1, train_labels_gpu.view(-1, 1)).squeeze()
+                    if self.args.targeted:
+                        c_val = train_logits.gather(1, targeted_gpu.view(-1, 1)).squeeze()
+                    else:
+                        c_val, c_new = t.max(train_logits - 1e6 * train_labels_onehot_gpu, dim=1)
+                    dif = l_val - c_val
+                    # loss = - F.cross_entropy(train_logits, attack_labels)
                     loss = t.sum(dif)
                     opt.zero_grad()
                     # t.cuda.empty_cache()
@@ -186,20 +199,15 @@ class GradAttack:
         total = X.shape[0] + self.args.num_adv
         adj = coo_matrix((data, (rows, cols)), shape=(total, total))
         adj = adj.tocsr()[X.shape[0]:, :]
-        np.save('result/features.npy', features)
-        with open('result/adj.pkl', 'wb') as f:
+        np.save('result/%s/features.npy' % self.dirname, features)
+        with open('result/%s/adj.pkl' % self.dirname, 'wb') as f:
             pk.dump(adj, f)
 
     # def normalize(self, feat):
     #     feat.data = 2 * feat.data / t.max(t.abs(feat.data), dim=0, keepdim=True)[0]
 
     def eval_real(self, features, edge_index, edge_weight, labels, train_idx):
-        # edge_index, edge_weight = convert_to_coo(A)
-        # features = t.from_numpy(X).cuda().float()
-        # edge_index = t.from_numpy(edge_index).cuda().long()
-        # edge_weight = t.from_numpy(edge_weight).cuda().float()
-        # labels = t.from_numpy(labels).cuda().long()
         with t.no_grad():
             logits = self.real_model(features, edge_index, edge_weight)
-            acc_train = count_acc(logits[train_idx], labels[train_idx])
+            acc_train = count_acc(logits[train_idx], labels)
             print('real model acc: %.4f' % acc_train)

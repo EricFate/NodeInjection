@@ -21,6 +21,10 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='Disables CUDA training.')
 parser.add_argument('--normalize', action='store_true', default=False,
                     help='whether or not normalize feature.')
+parser.add_argument('--attack_train', action='store_true', default=False,
+                    help='whether or not normalize feature.')
+parser.add_argument('--targeted', action='store_true', default=False,
+                    help='whether or not normalize feature.')
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
@@ -76,5 +80,24 @@ if __name__ == '__main__':
     model = SGCNModel(K=2, input_size=100,
                       hidden_size=args.hidden, class_num=18, pre_proj_num=2, after_proj_num=2).to(args.device)
     model.load_state_dict(torch.load('./saved/gcn.pth'))
+    model.eval()
+    if not args.attack_train:
+        idx = np.arange(labels.size(0), features.size(0))
+        with torch.no_grad():
+            f = features.to(args.device1)
+            e_i = edge_index.to(args.device1)
+            e_w = edge_weight.to(args.device1)
+            tmp_model = model.to(args.device1)
+            logits = tmp_model(f, e_i, e_w)
+            # logits = model(features, edge_index, edge_weight)
+            train_logits = logits[idx]
+            lb = torch.argmax(train_logits, dim=1)
+            # .to(args.device)
+            print(count_acc(logits[idx], lb))
+        lb = lb.to(args.device)
+        model = model.to(args.device)
+    else:
+        idx = np.arange(len(labels))
+        lb = labels
     attack = GradAttack(args, model)
-    attack.attack(features, edge_index, edge_weight, labels, np.arange(len(labels)))
+    attack.attack(features, edge_index, edge_weight, lb, idx)
