@@ -31,7 +31,9 @@ parser.add_argument('--seed', type=int, default=42, help='Random seed.')
 parser.add_argument('--gpu', type=str, default='0,1', help='gpu number.')
 parser.add_argument('--epochs', type=int, default=500,
                     help='Number of epochs to train.')
-parser.add_argument('--adv_feature_epoch', type=int, default=500,
+parser.add_argument('--adv_feature_epoch', type=int, default=1000,
+                    help='Number of epochs to train.')
+parser.add_argument('--adv_per_iter', type=int, default=25,
                     help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.01,
                     help='Initial learning rate.')
@@ -45,6 +47,7 @@ parser.add_argument('--dqn_hidden', type=int, default=64,
                     help='Number of hidden units of dqn.')
 parser.add_argument('--dropout', type=float, default=0.5,
                     help='Dropout rate (1 - keep probability).')
+parser.add_argument('--init_feature', type=str, default=None, help='gpu number.')
 
 if __name__ == '__main__':
 

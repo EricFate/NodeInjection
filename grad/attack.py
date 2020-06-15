@@ -16,7 +16,7 @@ class GradAttack:
         self.args = args
         self.real_model = real_model
         self.normalize = args.normalize
-        self.dirname = 'norm_{}_targ_{}'.format(self.normalize, self.args.targeted)
+        self.dirname = 'norm_{}_targ_{}_ep{}_api{}'.format(self.normalize, self.args.targeted,args.adv_feature_epoch,args.adv_per_iter)
         path = os.path.join('result', self.dirname)
         if not os.path.exists(path):
             os.mkdir(path)
@@ -24,7 +24,7 @@ class GradAttack:
     def attack(self, X, edge_index, edge_weight, labels, attack_idx):
         # self.eval_real(X, edge_index, edge_weight, labels, attack_idx)
         # edge_index, edge_weight = convert_to_coo(A)
-        adv_per_iter = 50
+        adv_per_iter = self.args.adv_per_iter
         print('grad attack with {} per iter and use normalize {}'.format(adv_per_iter, self.normalize))
         num_iter = self.args.num_adv // adv_per_iter
         attack_labels = labels
@@ -33,24 +33,33 @@ class GradAttack:
             .scatter_(1, attack_labels.view(-1, 1), 1)
         targeted = t.randint_like(labels, high=17).to(self.args.device)
         targeted[targeted >= labels] += 1
+        num_attack = len(attack_idx)
         for it in range(num_iter):
             print('iteration {}: adding {} new node'.format(it, adv_per_iter))
             cum_adv = (it + 1) * adv_per_iter
             adv_start = X.shape[0] + it * adv_per_iter
             # adv_weight = t.ones(new).to(self.args.device)
             # opt = optim.Adam((adv_features, adv_weight), lr=1000)
-            nums = [i + adv_start for i in range(adv_per_iter)]
+            nums = [ num_attack for i in range(adv_per_iter)]
             cum = [0]
             one = []
             other = []
             for i, n in enumerate(nums):
                 cum.append(cum[i] + n)
                 one.extend([adv_start + i] * n)
-                other.extend(list(range(adv_start + i)))
+                other.extend(attack_idx)
+                # other.extend(list(range(X.shape[0], adv_start + i)))
+                # other.extend(list(range(num_attack)))
+                assert len(one) == len(other)
             if 'adv_features' in vars():
                 cum_feat_tensor = t.cat((adv_features.data, t.randn((adv_per_iter, 100))))
             else:
-                cum_feat_tensor = t.randn((adv_per_iter, 100))
+                if self.args.init_feature is not None:
+                    print('loading init feature')
+                    init_feature = np.load(self.args.init_feature)
+                    cum_feat_tensor = t.from_numpy(init_feature).float()
+                else:
+                    cum_feat_tensor = t.randn((adv_per_iter, 100))
             adv_features = t.autograd.Variable(cum_feat_tensor).to(self.args.device).requires_grad_(
                 False)
             new_edge = t.LongTensor([one, other]).to(self.args.device)
@@ -63,7 +72,7 @@ class GradAttack:
             # features = t.autograd.Variable(t.cat([self.features, adv_feat], dim=0)).to(self.args.device1).requires_grad_(
             #     True)
             # features = normalize(features)
-            for ep in range(3):
+            for ep in range(2):
                 print('start adv train on edge %d' % ep)
                 if self.normalize:
                     norm_feature = 3 * F.normalize(adv_features, p=float('inf'), dim=0)
@@ -199,7 +208,7 @@ class GradAttack:
         total = X.shape[0] + self.args.num_adv
         adj = coo_matrix((data, (rows, cols)), shape=(total, total))
         adj = adj.tocsr()[X.shape[0]:, :]
-        np.save('result/%s/features.npy' % self.dirname, features)
+        np.save('result/%s/feature.npy' % self.dirname, features)
         with open('result/%s/adj.pkl' % self.dirname, 'wb') as f:
             pk.dump(adj, f)
 
