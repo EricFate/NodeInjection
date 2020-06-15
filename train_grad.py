@@ -10,7 +10,7 @@ import torch
 
 from utils.utils import count_acc
 from pygcn.utils import load_data, convert_to_coo
-from pygcn.models import SGCNModel
+from pygcn.models import SGCNModel,GraphSAGE
 from grad.attack import GradAttack
 from rl.agent import Agent
 from rl.env import GCNEnv
@@ -48,6 +48,7 @@ parser.add_argument('--dqn_hidden', type=int, default=64,
 parser.add_argument('--dropout', type=float, default=0.5,
                     help='Dropout rate (1 - keep probability).')
 parser.add_argument('--init_feature', type=str, default=None, help='gpu number.')
+parser.add_argument('--init_weight', type=str, default=None, help='init weight.')
 
 if __name__ == '__main__':
 
@@ -80,9 +81,8 @@ if __name__ == '__main__':
 
     # Train model
     t_total = time.time()
-    model = SGCNModel(K=2, input_size=100,
-                      hidden_size=args.hidden, class_num=18, pre_proj_num=2, after_proj_num=2).to(args.device)
-    model.load_state_dict(torch.load('./saved/gcn.pth'))
+    model = GraphSAGE().to(args.device)
+    model.load_state_dict(torch.load(args.init_weight))
     model.eval()
     if not args.attack_train:
         idx = np.arange(labels.size(0), features.size(0))
