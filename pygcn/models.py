@@ -142,9 +142,9 @@ class GraphSAGE(nn.Module):
         super(GraphSAGE, self).__init__()
         self.layers = nn.ModuleList()
         n_layers = 4
-        in_channels = 128
-        hidden_channels = 80
-        out_channels = 80
+        in_channels = 80
+        hidden_channels = 64
+        out_channels = 64
         class_num = 18
         bias = True
         normalize = True
@@ -165,10 +165,10 @@ class GraphSAGE(nn.Module):
         # activation None
 
     def forward(self, data):
-        x, edge_index = data.x, data.edge_index
+        x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
         x = self.embedding(x)
         for layer in self.layers:
-            x = layer(x, edge_index)
+            x = layer(x, edge_index, edge_weight)
             x = F.relu(x)
             x = F.dropout(x, p=0.20, training=self.training)
         x = self.out_layer(x, edge_index)

@@ -91,7 +91,7 @@ def get_data(cuda=True, use_adj=False, adv=False):
                     y=(torch.from_numpy(labels)).long())
     else:
         data = Data(x=(torch.from_numpy(features)).float(), edge_index=(torch.from_numpy(edge_index)).long(),
-                    y=(torch.from_numpy(labels)).long())
+                    y=(torch.from_numpy(labels)).long(), edge_weight=(torch.from_numpy(edge_weight)).long())
     data.train_mask = idx_train
     data.val_mask = idx_val
     data.test_mask = idx_test
@@ -115,6 +115,7 @@ def get_data(cuda=True, use_adj=False, adv=False):
     if cuda:
         data.x = data.x.cuda()
         data.edge_index = data.edge_index.cuda()
+        data.edge_weight = data.edge_weight.cuda()
         data.y = data.y.cuda()
         data.train_mask = data.train_mask.cuda()
         data.val_mask = data.val_mask.cuda()

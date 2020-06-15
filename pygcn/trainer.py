@@ -7,7 +7,6 @@ from pygcn.utils import accuracy
 from torch_geometric.data import DataLoader
 
 
-
 class GcnTrainer:
     def __init__(self, model, optimizer):
         self.model = model
@@ -73,4 +72,4 @@ class GcnTrainer:
         print("Test set results:",
               "loss= {:.4f}".format(loss_test.item()),
               "accuracy= {:.4f}".format(acc_test.item()))
-        torch.save(self.model, "./SAGE_nonorm:{}.pkl".format(acc_test))
+        torch.save(self.model, "./SAGE_nonorm_{:.5f}.pkl".format(acc_test))
