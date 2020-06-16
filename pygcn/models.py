@@ -35,8 +35,7 @@ class GraphSAGE(nn.Module):
         self.out_layer = SAGEConv(out_channels, class_num, normalize=normalize, bias=bias)
         # activation None
 
-    def forward(self, data):
-        x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
+    def forward(self, x, edge_index, edge_weight):
         x = self.embedding(x)
         for layer in self.layers:
             x = layer(x, edge_index, edge_weight)

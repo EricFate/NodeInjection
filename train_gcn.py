@@ -24,7 +24,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
 parser.add_argument('--fastmode', action='store_true', default=False,
                     help='Validate during training pass.')
 parser.add_argument('--seed', type=int, default=48, help='Random seed.')
-parser.add_argument('--gpu', type=str, default='1', help='gpu number.')
+parser.add_argument('--gpu', type=str, default='0', help='gpu number.')
 parser.add_argument('--epochs', type=int, default=500,
                     help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.001,
@@ -81,7 +81,7 @@ def main():
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
-        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
     # Load data
     adj, features, labels, idx_train, idx_val, idx_test = load_data()
