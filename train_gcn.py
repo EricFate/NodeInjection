@@ -120,32 +120,6 @@ def main():
     model_test()
 
 
-def train_gcn(model, data, labels, idx_train, idx_val):
-    t = time.time()
-    model.train()
-    optimizer.zero_grad()
-    output = model(features, edge_index, edge_weight)
-    loss_train = F.cross_entropy(output[idx_train], labels[idx_train])
-    acc_train = accuracy(output[idx_train], labels[idx_train])
-    loss_train.backward()
-    optimizer.step()
-
-    # if not args.fastmode:
-    #     # Evaluate validation set performance separately,
-    #     # deactivates dropout during validation run.
-    #     model.eval()
-    #     output = model(features, adj)
-
-    loss_val = F.cross_entropy(output[idx_val], labels[idx_val])
-    acc_val = accuracy(output[idx_val], labels[idx_val])
-    print('Epoch: {:04d}'.format(epoch + 1),
-          'loss_train: {:.4f}'.format(loss_train.item()),
-          'acc_train: {:.4f}'.format(acc_train.item()),
-          'loss_val: {:.4f}'.format(loss_val.item()),
-          'acc_val: {:.4f}'.format(acc_val.item()),
-          'time: {:.4f}s'.format(time.time() - t))
-
-
 if __name__ == '__main__':
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -163,29 +137,5 @@ if __name__ == '__main__':
     # optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     trainer = GcnTrainer(model, optimizer)
-    trainer.train(data, 2000)
+    trainer.train(data, 3000)
     trainer.test(data)
-
-# if __name__ == '__main__':
-#     args = parser.parse_args()
-#     args.cuda = not args.no_cuda and torch.cuda.is_available()
-#     args.device = device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#     np.random.seed(args.seed)
-#     torch.manual_seed(args.seed)
-#     if args.cuda:
-#         torch.cuda.manual_seed(args.seed)
-#         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-#     data = get_data()
-#     model = GraphSAGE()
-#     model.cuda()
-#     optimizer = optim.Adam(model.parameters(),
-#                            lr=args.lr, weight_decay=args.weight_decay)
-#
-#     use_batch = False
-#     if use_batch:
-#         cluster_data = ClusterData(data, num_parts=1000, recursive=False)
-#         trian_loader = ClusterLoader(cluster_data, batch_size=10, shuffle=True, num_workers=0)
-#         subgraph_loader = NeighborSampler(data.edge_index, sizes=[-1], batch_size=1024, shuffle=False)
-#     trainer = GcnTrainer(model, optimizer)
-#     trainer.train(dataset, 4000)
-#     trainer.test(dataset)
