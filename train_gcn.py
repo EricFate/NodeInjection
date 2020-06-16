@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from pygcn.utils import load_data, accuracy, convert_to_coo, get_data, Dataset
-from pygcn.models import SGCNModel, SGCNet, GraphSAGE, GraphCN
+from pygcn.models import GraphSAGE
 from pygcn.trainer import GcnTrainer
 from torch_geometric.data import ClusterData, ClusterLoader, NeighborSampler
 import os
